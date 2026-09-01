@@ -1,3 +1,8 @@
+"""GitPilot - GitHub organization management toolkit."""
+
+from gitpilot.cli import app
+
+
 def main() -> None:
-    """Run the GitPilot CLI."""
-    print("GitPilot - GitHub organization management toolkit")
+    """Entry point for the GitPilot CLI."""
+    app()
