@@ -1,12 +1,10 @@
 import typer
 
+from gitpilot.commands.branch import app as branch_app
+
 app = typer.Typer(
     name="gitpilot",
     help="CLI toolkit for automating GitHub organization management at scale.",
-)
-
-branch_app = typer.Typer(
-    help="Manage repository branches."
 )
 
 secret_app = typer.Typer(
