@@ -4,6 +4,7 @@ from gitpilot.core.branch_operations import create_branch_operation
 from gitpilot.core.executor import execute_bulk
 from gitpilot.core.repositories import parse_repositories, parse_repositories_file
 from gitpilot.core.results import OperationStatus
+from gitpilot.github.fake_client import FakeGitHubClient
 
 app = typer.Typer(help="Manage repository branches.")
 
@@ -49,7 +50,10 @@ def create(
     else:
         repositories = parse_repositories_file(owner, repos_file)
 
+    client = FakeGitHubClient()
+
     operation = create_branch_operation(
+    client=client,
     source=source,
     target=target,
     dry_run=dry_run,
