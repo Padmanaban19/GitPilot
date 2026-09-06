@@ -13,3 +13,22 @@ class GitHubClient(Protocol):
     ) -> None:
         """Create a branch in a repository."""
         ...
+
+    def get_repository_variable(
+        self,
+        owner: str,
+        repository: str,
+        name: str,
+    ) -> dict | None:
+        """Get a repository variable by name."""
+        ...
+
+    def set_repository_variable(
+        self,
+        owner: str,
+        repository: str,
+        name: str,
+        value: str,
+    ) -> None:
+        """Create or update a repository variable."""
+        ...

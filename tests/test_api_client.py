@@ -250,3 +250,153 @@ def test_request_stops_after_max_retries() -> None:
     assert attempts == 4
 
     client.close()
+
+def test_get_repository_variable_success():
+    client = GitHubApiClient(token="test-token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert (
+            request.url.path
+            == "/repos/company/repoA/actions/variables/APP_ENV"
+        )
+
+        return httpx.Response(
+            200,
+            json={
+                "name": "APP_ENV",
+                "value": "production",
+            },
+        )
+
+    client._client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="https://api.github.com",
+    )
+
+    variable = client.get_repository_variable(
+        owner="company",
+        repository="repoA",
+        name="APP_ENV",
+    )
+
+    assert variable == {
+        "name": "APP_ENV",
+        "value": "production",
+    }
+
+    client.close()
+
+def test_get_repository_variable_returns_none_for_missing_variable():
+    client = GitHubApiClient(token="test-token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert (
+            request.url.path
+            == "/repos/company/repoA/actions/variables/DOES_NOT_EXIST"
+        )
+
+        return httpx.Response(
+            404,
+            json={"message": "Not Found"},
+        )
+
+    client._client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="https://api.github.com",
+    )
+
+    variable = client.get_repository_variable(
+        owner="company",
+        repository="repoA",
+        name="DOES_NOT_EXIST",
+    )
+
+    assert variable is None
+
+    client.close()
+
+def test_set_repository_variable_success():
+    client = GitHubApiClient(token="test-token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert (
+            request.url.path
+            == "/repos/company/repoA/actions/variables"
+        )
+        assert json.loads(request.content) == {
+            "name": "APP_ENV",
+            "value": "production",
+        }
+
+        return httpx.Response(
+            201,
+            json={
+                "name": "APP_ENV",
+                "value": "production",
+            },
+        )
+
+    client._client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="https://api.github.com",
+    )
+
+    client.set_repository_variable(
+        owner="company",
+        repository="repoA",
+        name="APP_ENV",
+        value="production",
+    )
+
+    client.close()
+
+def test_set_repository_variable_updates_existing_variable():
+    client = GitHubApiClient(token="test-token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST":
+            assert (
+                request.url.path
+                == "/repos/company/repoA/actions/variables"
+            )
+            assert json.loads(request.content) == {
+                "name": "APP_ENV",
+                "value": "production",
+            }
+
+            return httpx.Response(
+                422,
+                json={"message": "Validation Failed"},
+            )
+
+        if request.method == "PATCH":
+            assert (
+                request.url.path
+                == "/repos/company/repoA/actions/variables/APP_ENV"
+            )
+            assert json.loads(request.content) == {
+                "name": "APP_ENV",
+                "value": "production",
+            }
+
+            return httpx.Response(204)
+
+        raise AssertionError(f"Unexpected request: {request.method}")
+
+
+    client._client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="https://api.github.com",
+    )
+
+    client.set_repository_variable(
+        owner="company",
+        repository="repoA",
+        name="APP_ENV",
+        value="production",
+    )
+
+    client.close()

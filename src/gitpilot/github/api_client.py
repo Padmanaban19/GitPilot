@@ -122,6 +122,56 @@ class GitHubApiClient:
 
         return response.json()
 
+    def get_repository_variable(
+        self,
+        owner: str,
+        repository: str,
+        name: str,
+    ) -> dict | None:
+        """Get a repository variable by name."""
+        response = self._request(
+            "GET",
+            f"/repos/{owner}/{repository}/actions/variables/{name}",
+        )
+
+        if response.status_code == 404:
+            return None
+
+        self._raise_for_status(response)
+        return response.json()
+
+    def set_repository_variable(
+        self,
+        owner: str,
+        repository: str,
+        name: str,
+        value: str,
+    ) -> None:
+        """Create or update a repository variable."""
+        response = self._request(
+            "POST",
+            f"/repos/{owner}/{repository}/actions/variables",
+            json={
+                "name": name,
+                "value": value,
+            },
+        )
+
+        if response.status_code == 201:
+            return
+
+        if response.status_code == 422:
+            response = self._request(
+                "PATCH",
+                f"/repos/{owner}/{repository}/actions/variables/{name}",
+                json={
+                    "name": name,
+                    "value": value,
+                },
+            )
+
+        self._raise_for_status(response)
+
     def _raise_for_status(
         self,
         response: httpx.Response,

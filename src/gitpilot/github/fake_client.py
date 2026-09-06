@@ -7,13 +7,20 @@ class BranchCreation:
     repository: str
     source: str
     target: str
-
+@dataclass(frozen=True)
+class RepositoryVariable:
+    owner: str
+    repository: str
+    name: str
+    value: str
 
 class FakeGitHubClient:
     """Fake GitHub client used for testing."""
 
     def __init__(self) -> None:
         self.created_branches: list[BranchCreation] = []
+        self.repository_variables: list[RepositoryVariable] = []
+
 
     def create_branch(
         self,
@@ -28,5 +35,52 @@ class FakeGitHubClient:
                 repository=repository,
                 source=source,
                 target=target,
+            )
+        )
+
+
+    def get_repository_variable(
+        self,
+        owner: str,
+        repository: str,
+        name: str,
+    ) -> dict | None:
+        for variable in self.repository_variables:
+            if (
+                variable.owner == owner
+                and variable.repository == repository
+                and variable.name == name
+            ):
+                return {
+                    "name": variable.name,
+                    "value": variable.value,
+                }
+
+        return None
+
+
+    def set_repository_variable(
+        self,
+        owner: str,
+        repository: str,
+        name: str,
+        value: str,
+    ) -> None:
+        self.repository_variables = [
+            variable
+            for variable in self.repository_variables
+            if not (
+                variable.owner == owner
+                and variable.repository == repository
+                and variable.name == name
+            )
+        ]
+
+        self.repository_variables.append(
+            RepositoryVariable(
+                owner=owner,
+                repository=repository,
+                name=name,
+                value=value,
             )
         )
