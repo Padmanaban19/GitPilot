@@ -400,3 +400,155 @@ def test_set_repository_variable_updates_existing_variable():
     )
 
     client.close()
+
+
+def test_get_repository_secret_public_key_success():
+    client = GitHubApiClient(token="test-token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert (
+            request.url.path
+            == "/repos/company/repoA/actions/secrets/public-key"
+        )
+
+        return httpx.Response(
+            200,
+            json={
+                "key_id": "123456",
+                "key": "public-key-value",
+            },
+        )
+
+    client._client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="https://api.github.com",
+    )
+
+    public_key = client.get_repository_secret_public_key(
+        owner="company",
+        repository="repoA",
+    )
+
+    assert public_key == {
+        "key_id": "123456",
+        "key": "public-key-value",
+    }
+
+    client.close()
+
+def test_get_repository_secret_success():
+    client = GitHubApiClient(token="test-token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "GET"
+        assert (
+            request.url.path
+            == "/repos/company/repoA/actions/secrets/MY_SECRET"
+        )
+
+        return httpx.Response(
+            200,
+            json={
+                "name": "MY_SECRET",
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-02T00:00:00Z",
+            },
+        )
+
+    client._client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="https://api.github.com",
+    )
+
+    secret = client.get_repository_secret(
+        owner="company",
+        repository="repoA",
+        name="MY_SECRET",
+    )
+
+    assert secret == {
+        "name": "MY_SECRET",
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-02T00:00:00Z",
+    }
+
+    client.close()
+
+def test_get_repository_secret_missing():
+    client = GitHubApiClient(token="test-token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404)
+
+    client._client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="https://api.github.com",
+    )
+
+    secret = client.get_repository_secret(
+        owner="company",
+        repository="repoA",
+        name="MISSING_SECRET",
+    )
+
+    assert secret is None
+
+    client.close()
+
+def test_set_repository_secret_success():
+    client = GitHubApiClient(token="test-token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "PUT"
+        assert (
+            request.url.path
+            == "/repos/company/repoA/actions/secrets/MY_SECRET"
+        )
+        assert request.read().decode() == (
+            '{"encrypted_value":"encrypted-value","key_id":"123456"}'
+        )
+
+        return httpx.Response(201)
+
+    client._client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="https://api.github.com",
+    )
+
+    client.set_repository_secret(
+        owner="company",
+        repository="repoA",
+        name="MY_SECRET",
+        encrypted_value="encrypted-value",
+        key_id="123456",
+    )
+
+    client.close()
+
+def test_set_repository_secret_update_success():
+    client = GitHubApiClient(token="test-token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "PUT"
+        assert (
+            request.url.path
+            == "/repos/company/repoA/actions/secrets/MY_SECRET"
+        )
+
+        return httpx.Response(204)
+
+    client._client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="https://api.github.com",
+    )
+
+    client.set_repository_secret(
+        owner="company",
+        repository="repoA",
+        name="MY_SECRET",
+        encrypted_value="encrypted-value",
+        key_id="123456",
+    )
+
+    client.close()

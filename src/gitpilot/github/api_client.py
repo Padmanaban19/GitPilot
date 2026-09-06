@@ -172,6 +172,56 @@ class GitHubApiClient:
 
         self._raise_for_status(response)
 
+    def get_repository_secret_public_key(
+        self,
+        owner: str,
+        repository: str,
+    ) -> dict:
+        """Get the public key used to encrypt repository secrets."""
+        response = self._request(
+            "GET",
+            f"/repos/{owner}/{repository}/actions/secrets/public-key",
+        )
+        self._raise_for_status(response)
+        return response.json()
+
+    def get_repository_secret(
+        self,
+        owner: str,
+        repository: str,
+        name: str,
+    ) -> dict | None:
+        """Get a repository secret by name."""
+        response = self._request(
+            "GET",
+            f"/repos/{owner}/{repository}/actions/secrets/{name}",
+        )
+        if response.status_code == 404:
+            return None
+        self._raise_for_status(response)
+        return response.json()
+
+    def set_repository_secret(
+        self,
+        owner: str,
+        repository: str,
+        name: str,
+        encrypted_value: str,
+        key_id: str,
+    ) -> None:
+        """Create or update a repository secret."""
+        response = self._request(
+            "PUT",
+            f"/repos/{owner}/{repository}/actions/secrets/{name}",
+            json={
+                "encrypted_value": encrypted_value,
+                "key_id": key_id,
+            },
+        )
+
+        if response.status_code not in {201, 204}:
+            self._raise_for_status(response)
+
     def _raise_for_status(
         self,
         response: httpx.Response,

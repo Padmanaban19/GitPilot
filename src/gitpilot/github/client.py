@@ -32,3 +32,31 @@ class GitHubClient(Protocol):
     ) -> None:
         """Create or update a repository variable."""
         ...
+
+    def get_repository_secret_public_key(
+        self,
+        owner: str,
+        repository: str,
+    ) -> dict:
+        """Get the public key used to encrypt repository secrets."""
+        ...
+
+    def get_repository_secret(
+        self,
+        owner: str,
+        repository: str,
+        name: str,
+    ) -> dict | None:
+        """Get a repository secret by name."""
+        ...
+
+    def set_repository_secret(
+        self,
+        owner: str,
+        repository: str,
+        name: str,
+        encrypted_value: str,
+        key_id: str,
+    ) -> None:
+        """Create or update a repository secret."""
+        ...
