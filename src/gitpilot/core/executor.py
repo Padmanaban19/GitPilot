@@ -14,7 +14,7 @@ def execute_bulk(
     for repository in repositories:
         try:
             result = operation(repository)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             result = RepositoryResult(
                 owner=repository.owner,
                 repository=repository.name,

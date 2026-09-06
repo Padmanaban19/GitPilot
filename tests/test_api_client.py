@@ -183,3 +183,70 @@ def test_create_branch_success():
     assert requests[1].method == "GET"
     assert requests[2].method == "POST"
     client.close()
+
+
+def test_client_uses_ten_second_timeout() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    assert client._client.timeout.connect == 10.0
+    assert client._client.timeout.read == 10.0
+    assert client._client.timeout.write == 10.0
+    assert client._client.timeout.pool == 10.0
+
+    client.close()
+
+
+def test_client_context_manager_closes_client() -> None:
+    with GitHubApiClient(token="test-token") as client:
+        assert not client._client.is_closed
+
+    assert client._client.is_closed
+
+
+def test_request_retries_transient_failures() -> None:
+    client = GitHubApiClient(token="test-token", retry_delay=0)
+
+    responses = [
+        httpx.Response(503),
+        httpx.Response(503),
+        httpx.Response(200),
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return responses.pop(0)
+
+    client._client = httpx.Client(
+        base_url="https://api.github.com",
+        transport=httpx.MockTransport(handler),
+    )
+
+    response = client._request("GET", "/test")
+
+    assert response.status_code == 200
+    assert len(responses) == 0
+
+    client.close()
+
+
+def test_request_stops_after_max_retries() -> None:
+    client = GitHubApiClient(token="test-token", retry_delay=0)
+
+    attempts = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        return httpx.Response(503)
+
+    client._client = httpx.Client(
+        base_url="https://api.github.com",
+        transport=httpx.MockTransport(handler),
+    )
+
+
+    response = client._request("GET", "/test")
+
+    assert response.status_code == 503
+    assert attempts == 4
+
+    client.close()

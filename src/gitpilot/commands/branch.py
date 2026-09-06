@@ -50,15 +50,14 @@ def create(
     else:
         repositories = parse_repositories_file(owner, repos_file)
 
-    client = GitHubApiClient()
-
-    operation = create_branch_operation(
-    client=client,
-    source=source,
-    target=target,
-    dry_run=dry_run,
-)
-    results = execute_bulk(repositories, operation)
+    with GitHubApiClient() as client:
+        operation = create_branch_operation(
+            client=client,
+            source=source,
+            target=target,
+            dry_run=dry_run,
+        )
+        results = execute_bulk(repositories, operation)
 
     typer.echo("")
     typer.echo("GitPilot - Branch Create")

@@ -1,27 +1,63 @@
+import time
+from types import TracebackType
+from typing import Self
+
 import httpx
 
 from gitpilot.github.auth import get_github_token
 from gitpilot.github.errors import GitHubApiError
 
+RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
+MAX_RETRIES = 3
+RETRY_DELAY = 1.0
+
 
 class GitHubApiClient:
     """GitHub REST API client."""
 
-    def __init__(self, token: str | None = None) -> None:
+    def __init__(
+        self,
+        token: str | None = None,
+        retry_delay: float = RETRY_DELAY,
+    ) -> None:
         if token is None:
             token = get_github_token()
 
         if not token.strip():
             raise ValueError("GitHub token cannot be empty.")
 
+        self._retry_delay = retry_delay
+
         self._client = httpx.Client(
             base_url="https://api.github.com",
+            timeout=10.0,
             headers={
                 "Accept": "application/vnd.github+json",
                 "Authorization": f"Bearer {token}",
                 "X-GitHub-Api-Version": "2022-11-28",
             },
         )
+
+    def _request(
+        self,
+        method: str,
+        url: str,
+        **kwargs: object,
+    ) -> httpx.Response:
+        """Make an HTTP request with retries for transient failures."""
+
+        for attempt in range(MAX_RETRIES + 1):
+            response = self._client.request(method, url, **kwargs)
+
+            if response.status_code not in RETRYABLE_STATUS_CODES:
+                return response
+
+            if attempt == MAX_RETRIES:
+                return response
+
+            time.sleep(self._retry_delay)
+
+        raise RuntimeError("Unexpected retry state.")
 
     def branch_exists(
         self,
@@ -31,8 +67,8 @@ class GitHubApiClient:
     ) -> bool:
         """Check whether a branch exists."""
 
-        response = self._client.get(
-            f"/repos/{owner}/{repository}/git/ref/heads/{branch}"
+        response = self._request(
+            "GET", f"/repos/{owner}/{repository}/git/ref/heads/{branch}"
         )
 
         if response.status_code == 404:
@@ -41,6 +77,7 @@ class GitHubApiClient:
         self._raise_for_status(response)
 
         return True
+
     def create_branch(
         self,
         owner: str,
@@ -56,14 +93,15 @@ class GitHubApiClient:
                 message=f"Branch '{target}' already exists.",
             )
 
-        response = self._client.get(
-            f"/repos/{owner}/{repository}/git/ref/heads/{source}"
+        response = self._request(
+            "GET", f"/repos/{owner}/{repository}/git/ref/heads/{source}"
         )
         self._raise_for_status(response)
 
         source_sha = response.json()["object"]["sha"]
 
-        response = self._client.post(
+        response = self._request(
+            "POST",
             f"/repos/{owner}/{repository}/git/refs",
             json={
                 "ref": f"refs/heads/{target}",
@@ -79,9 +117,7 @@ class GitHubApiClient:
     ) -> dict:
         """Get repository information."""
 
-        response = self._client.get(
-            f"/repos/{owner}/{repository}"
-        )
+        response = self._request("GET", f"/repos/{owner}/{repository}")
         self._raise_for_status(response)
 
         return response.json()
@@ -102,9 +138,20 @@ class GitHubApiClient:
             message = response.text
 
         raise GitHubApiError(
-        status_code=response.status_code,
-        message=message,
+            status_code=response.status_code,
+            message=message,
         )
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        self.close()
 
     def close(self) -> None:
         """Close the underlying HTTP client."""
