@@ -45,10 +45,13 @@ def create(
             "Provide exactly one of --repos or --repos-file."
         )
 
-    if repos:
-        repositories = parse_repositories(owner, repos)
-    else:
-        repositories = parse_repositories_file(owner, repos_file)
+    try:
+        if repos:
+            repositories = parse_repositories(owner, repos)
+        else:
+            repositories = parse_repositories_file(owner, repos_file)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
     with GitHubApiClient() as client:
         operation = create_branch_operation(
