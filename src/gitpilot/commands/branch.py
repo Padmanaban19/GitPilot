@@ -3,7 +3,7 @@ import typer
 from gitpilot.core.branch_operations import create_branch_operation
 from gitpilot.core.executor import execute_bulk
 from gitpilot.core.repositories import parse_repositories, parse_repositories_file
-from gitpilot.core.results import OperationStatus
+from gitpilot.core.results import OperationStatus, summarize_results
 from gitpilot.github.api_client import GitHubApiClient
 
 app = typer.Typer(help="Manage repository branches.")
@@ -81,6 +81,19 @@ def create(
             f"{symbol} {result.repository}: {result.message}"
         )
 
+    summary = summarize_results(results)
+
+    typer.echo("")
+    typer.echo("Summary")
+    typer.echo("-------")
+    typer.echo(f"Total:   {len(results)}")
+    typer.echo(f"Success: {summary[OperationStatus.SUCCESS]}")
+    typer.echo(f"Skipped: {summary[OperationStatus.SKIPPED]}")
+    typer.echo(f"Failed:  {summary[OperationStatus.FAILED]}")
+
     if dry_run:
         typer.echo("")
         typer.echo("DRY RUN - No changes were made.")
+
+    if summary[OperationStatus.FAILED] > 0:
+        raise typer.Exit(code=1)
