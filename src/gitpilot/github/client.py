@@ -60,3 +60,27 @@ class GitHubClient(Protocol):
     ) -> None:
         """Create or update a repository secret."""
         ...
+
+    def get_environment(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+    ) -> dict | None:
+        ...
+
+    def create_environment(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+    ) -> None:
+        ...
+
+    def delete_environment(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+    ) -> None:
+        ...

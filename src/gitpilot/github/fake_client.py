@@ -23,6 +23,11 @@ class RepositorySecret:
     name: str
     encrypted_value: str
     key_id: str
+@dataclass(frozen=True)
+class Environment:
+    owner: str
+    repository: str
+    name: str
 class FakeGitHubClient:
     """Fake GitHub client used for testing."""
 
@@ -35,6 +40,7 @@ class FakeGitHubClient:
         self._secret_public_key = base64.b64encode(
             bytes(self._secret_private_key.public_key)
         ).decode("utf-8")
+        self.environments: list[Environment] = []
 
 
     def create_branch(
@@ -138,4 +144,61 @@ class FakeGitHubClient:
                 key_id=key_id,
             )
         )
+
+    def get_environment(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+    ) -> dict | None:
+        for item in self.environments:
+            if (
+                item.owner == owner
+                and item.repository == repository
+                and item.name == environment
+            ):
+                return {
+                    "name": item.name,
+                }
+
+        return None
+
+    def create_environment(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+    ) -> None:
+        existing = self.get_environment(
+            owner=owner,
+            repository=repository,
+            environment=environment,
+        )
+
+        if existing is not None:
+            return
+
+        self.environments.append(
+            Environment(
+                owner=owner,
+                repository=repository,
+                name=environment,
+            )
+        )
+
+    def delete_environment(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+    ) -> None:
+        self.environments = [
+            item
+            for item in self.environments
+            if not (
+                item.owner == owner
+                and item.repository == repository
+                and item.name == environment
+            )
+        ]
     

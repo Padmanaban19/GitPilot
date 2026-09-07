@@ -1,4 +1,5 @@
 import json
+from unittest.mock import Mock
 
 import httpx
 import pytest
@@ -552,3 +553,106 @@ def test_set_repository_secret_update_success():
     )
 
     client.close()
+
+def test_get_environment_returns_environment() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(
+        200,
+        json={"name": "production"},
+    )
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    result = client.get_environment(
+        owner="acme",
+        repository="app",
+        environment="production",
+    )
+
+    assert result == {"name": "production"}
+
+
+def test_get_environment_returns_none_when_missing() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(404)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    result = client.get_environment(
+        owner="acme",
+        repository="app",
+        environment="production",
+    )
+
+    assert result is None
+
+
+def test_create_environment() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(200)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    client.create_environment(
+        owner="acme",
+        repository="app",
+        environment="production",
+    )
+
+    request = client._client.request.call_args
+    assert request.args == (
+        "PUT",
+        "/repos/acme/app/environments/production",
+    )
+
+
+def test_delete_environment() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(204)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    client.delete_environment(
+        owner="acme",
+        repository="app",
+        environment="production",
+    )
+
+    request = client._client.request.call_args
+    assert request.args == (
+        "DELETE",
+        "/repos/acme/app/environments/production",
+    )
+
+def test_environment_name_is_url_encoded() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(
+        200,
+        json={"name": "production/release"},
+    )
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    result = client.get_environment(
+        owner="acme",
+        repository="app",
+        environment="production/release",
+    )
+
+    assert result == {"name": "production/release"}
+
+    request = client._client.request.call_args
+    assert request.args == (
+        "GET",
+        "/repos/acme/app/environments/production%2Frelease",
+    )

@@ -1,6 +1,7 @@
 import time
 from types import TracebackType
 from typing import Self
+from urllib.parse import quote
 
 import httpx
 
@@ -221,6 +222,60 @@ class GitHubApiClient:
 
         if response.status_code not in {201, 204}:
             self._raise_for_status(response)
+
+    def get_environment(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+    ) -> dict | None:
+        environment_path = quote(environment, safe="")
+
+        response = self._request(
+            "GET",
+            f"/repos/{owner}/{repository}/environments/{environment_path}",
+        )
+
+        if response.status_code == 404:
+            return None
+
+        self._raise_for_status(response)
+        return response.json()
+
+
+    def create_environment(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+    ) -> None:
+        environment_path = quote(environment, safe="")
+
+        response = self._request(
+            "PUT",
+            f"/repos/{owner}/{repository}/environments/{environment_path}",
+        )
+
+        self._raise_for_status(response)
+
+
+    def delete_environment(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+    ) -> None:
+        environment_path = quote(environment, safe="")
+        
+        response = self._request(
+            "DELETE",
+            f"/repos/{owner}/{repository}/environments/{environment_path}",
+        )
+
+        if response.status_code == 404:
+            return
+
+        self._raise_for_status(response)
 
     def _raise_for_status(
         self,

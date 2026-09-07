@@ -19,3 +19,9 @@ class ConfigurationTarget:
     kind: ConfigurationKind
     name: str
     environment: str | None = None
+
+@dataclass(frozen=True)
+class EnvironmentTarget:
+    owner: str
+    repository: str
+    name: str
