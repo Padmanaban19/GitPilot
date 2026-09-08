@@ -28,6 +28,21 @@ class Environment:
     owner: str
     repository: str
     name: str
+@dataclass(frozen=True)
+class EnvironmentVariable:
+    owner: str
+    repository: str
+    environment: str
+    name: str
+    value: str
+@dataclass(frozen=True)
+class EnvironmentSecret:
+    owner: str
+    repository: str
+    environment: str
+    name: str
+    encrypted_value: str
+    key_id: str   
 class FakeGitHubClient:
     """Fake GitHub client used for testing."""
 
@@ -41,6 +56,8 @@ class FakeGitHubClient:
             bytes(self._secret_private_key.public_key)
         ).decode("utf-8")
         self.environments: list[Environment] = []
+        self.environment_variables: list[EnvironmentVariable] = []
+        self.environment_secrets: list[EnvironmentSecret] = []
 
 
     def create_branch(
@@ -201,4 +218,126 @@ class FakeGitHubClient:
                 and item.name == environment
             )
         ]
-    
+
+    def get_environment_variable(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+    ) -> dict | None:
+        for item in self.environment_variables:
+            if (
+                item.owner == owner
+                and item.repository == repository
+                and item.environment == environment
+                and item.name == name
+            ):
+                return {
+                    "name": item.name,
+                    "value": item.value,
+                }
+
+        return None
+
+
+    def set_environment_variable(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+        value: str,
+    ) -> None:
+        existing = self.get_environment_variable(
+            owner=owner,
+            repository=repository,
+            environment=environment,
+            name=name,
+        )
+
+        if existing is not None:
+            self.environment_variables = [
+                item
+                for item in self.environment_variables
+                if not (
+                    item.owner == owner
+                    and item.repository == repository
+                    and item.environment == environment
+                    and item.name == name
+                )
+            ]
+
+        self.environment_variables.append(
+            EnvironmentVariable(
+                owner=owner,
+                repository=repository,
+                environment=environment,
+                name=name,
+                value=value,
+            )
+        )
+
+    def get_environment_secret_public_key(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+    ) -> dict:
+        return {
+            "key_id": "fake-environment-key-id",
+            "key": self._secret_public_key,
+        }
+
+
+    def get_environment_secret(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+    ) -> dict | None:
+        for item in self.environment_secrets:
+            if (
+                item.owner == owner
+                and item.repository == repository
+                and item.environment == environment
+                and item.name == name
+            ):
+                return {
+                    "name": item.name,
+                }
+
+        return None
+
+
+    def set_environment_secret(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+        encrypted_value: str,
+        key_id: str,
+    ) -> None:
+        self.environment_secrets = [
+            item
+            for item in self.environment_secrets
+            if not (
+                item.owner == owner
+                and item.repository == repository
+                and item.environment == environment
+                and item.name == name
+            )
+        ]
+
+        self.environment_secrets.append(
+            EnvironmentSecret(
+                owner=owner,
+                repository=repository,
+                environment=environment,
+                name=name,
+                encrypted_value=encrypted_value,
+                key_id=key_id,
+            )
+        )

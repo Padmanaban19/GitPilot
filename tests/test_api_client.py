@@ -656,3 +656,281 @@ def test_environment_name_is_url_encoded() -> None:
         "GET",
         "/repos/acme/app/environments/production%2Frelease",
     )
+
+def test_get_environment_variable_returns_variable() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(
+        200,
+        json={
+            "name": "API_URL",
+            "value": "https://api.example.com",
+        },
+    )
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    result = client.get_environment_variable(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_URL",
+    )
+
+    assert result == {
+        "name": "API_URL",
+        "value": "https://api.example.com",
+    }
+
+
+def test_get_environment_variable_returns_none_when_missing() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(404)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    result = client.get_environment_variable(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_URL",
+    )
+
+    assert result is None
+
+
+def test_set_environment_variable_creates_variable() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(201)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    client.set_environment_variable(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_URL",
+        value="https://api.example.com",
+    )
+
+    request = client._client.request.call_args
+
+    assert request.args == (
+        "POST",
+        "/repos/acme/app/environments/production/variables",
+    )
+    assert request.kwargs["json"] == {
+        "name": "API_URL",
+        "value": "https://api.example.com",
+    }
+
+
+def test_set_environment_variable_updates_existing_variable() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    create_response = httpx.Response(422)
+    update_response = httpx.Response(204)
+
+    client._client = Mock()
+    client._client.request.side_effect = [
+        create_response,
+        update_response,
+    ]
+
+    client.set_environment_variable(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_URL",
+        value="https://new.example.com",
+    )
+
+    assert client._client.request.call_count == 2
+
+    first_request = client._client.request.call_args_list[0]
+    second_request = client._client.request.call_args_list[1]
+
+    assert first_request.args == (
+        "POST",
+        "/repos/acme/app/environments/production/variables",
+    )
+
+    assert second_request.args == (
+        "PATCH",
+        "/repos/acme/app/environments/production/variables/API_URL",
+    )
+
+    assert second_request.kwargs["json"] == {
+        "name": "API_URL",
+        "value": "https://new.example.com",
+    }
+
+def test_environment_variable_path_url_encodes_environment_name() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(
+        200,
+        json={"name": "API_URL", "value": "test"},
+    )
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    result = client.get_environment_variable(
+        owner="acme",
+        repository="app",
+        environment="production/release",
+        name="API_URL",
+    )
+
+    assert result == {
+        "name": "API_URL",
+        "value": "test",
+    }
+
+    request = client._client.request.call_args
+
+    assert request.args == (
+        "GET",
+        "/repos/acme/app/environments/production%2Frelease/variables/API_URL",
+    )
+
+def test_get_environment_secret_public_key() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(
+        200,
+        json={
+            "key_id": "environment-key-id",
+            "key": "environment-public-key",
+        },
+    )
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    result = client.get_environment_secret_public_key(
+        owner="acme",
+        repository="app",
+        environment="production",
+    )
+
+    assert result == {
+        "key_id": "environment-key-id",
+        "key": "environment-public-key",
+    }
+
+    request = client._client.request.call_args
+
+    assert request.args == (
+        "GET",
+        "/repos/acme/app/environments/production/secrets/public-key",
+    )
+
+def test_get_environment_secret_returns_secret() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(
+        200,
+        json={
+            "name": "API_KEY",
+            "created_at": "2026-01-01T00:00:00Z",
+            "updated_at": "2026-01-01T00:00:00Z",
+        },
+    )
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    result = client.get_environment_secret(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_KEY",
+    )
+
+    assert result == {
+        "name": "API_KEY",
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
+    }
+
+
+def test_get_environment_secret_returns_none_when_missing() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(404)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    result = client.get_environment_secret(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_KEY",
+    )
+
+    assert result is None
+
+def test_set_environment_secret_creates_secret() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(201)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    client.set_environment_secret(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_KEY",
+        encrypted_value="encrypted-value",
+        key_id="environment-key-id",
+    )
+
+    request = client._client.request.call_args
+
+    assert request.args == (
+        "PUT",
+        "/repos/acme/app/environments/production/secrets/API_KEY",
+    )
+    assert request.kwargs["json"] == {
+        "encrypted_value": "encrypted-value",
+        "key_id": "environment-key-id",
+    }
+
+
+def test_set_environment_secret_accepts_update_and_encodes_environment() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(204)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    client.set_environment_secret(
+        owner="acme",
+        repository="app",
+        environment="production/release",
+        name="API_KEY",
+        encrypted_value="encrypted-value",
+        key_id="environment-key-id",
+    )
+
+    request = client._client.request.call_args
+
+    assert request.args == (
+        "PUT",
+        "/repos/acme/app/environments/production%2Frelease/secrets/API_KEY",
+    )
+    assert request.kwargs["json"] == {
+        "encrypted_value": "encrypted-value",
+        "key_id": "environment-key-id",
+    }

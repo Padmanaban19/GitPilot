@@ -277,6 +277,126 @@ class GitHubApiClient:
 
         self._raise_for_status(response)
 
+    def get_environment_variable(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+    ) -> dict | None:
+        environment_path = quote(environment, safe="")
+
+        response = self._request(
+            "GET",
+            f"/repos/{owner}/{repository}/environments/"
+            f"{environment_path}/variables/{name}",
+        )
+
+        if response.status_code == 404:
+            return None
+
+        self._raise_for_status(response)
+        return response.json()
+
+
+    def set_environment_variable(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+        value: str,
+    ) -> None:
+        environment_path = quote(environment, safe="")
+
+        response = self._request(
+            "POST",
+            f"/repos/{owner}/{repository}/environments/"
+            f"{environment_path}/variables",
+            json={
+                "name": name,
+                "value": value,
+            },
+        )
+
+        if response.status_code == 201:
+            return
+
+        if response.status_code == 422:
+            response = self._request(
+                "PATCH",
+                f"/repos/{owner}/{repository}/environments/"
+                f"{environment_path}/variables/{name}",
+                json={
+                    "name": name,
+                    "value": value,
+                },
+            )
+
+        self._raise_for_status(response)
+
+    def get_environment_secret_public_key(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+    ) -> dict:
+        environment_path = quote(environment, safe="")
+
+        response = self._request(
+            "GET",
+            f"/repos/{owner}/{repository}/environments/"
+            f"{environment_path}/secrets/public-key",
+        )
+
+        self._raise_for_status(response)
+        return response.json()
+
+    def get_environment_secret(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+    ) -> dict | None:
+        environment_path = quote(environment, safe="")
+
+        response = self._request(
+            "GET",
+            f"/repos/{owner}/{repository}/environments/"
+            f"{environment_path}/secrets/{name}",
+        )
+
+        if response.status_code == 404:
+            return None
+
+        self._raise_for_status(response)
+        return response.json()
+
+    def set_environment_secret(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+        encrypted_value: str,
+        key_id: str,
+    ) -> None:
+        environment_path = quote(environment, safe="")
+
+        response = self._request(
+            "PUT",
+            f"/repos/{owner}/{repository}/environments/"
+            f"{environment_path}/secrets/{name}",
+            json={
+                "encrypted_value": encrypted_value,
+                "key_id": key_id,
+            },
+        )
+
+        if response.status_code not in {201, 204}:
+            self._raise_for_status(response)
+
     def _raise_for_status(
         self,
         response: httpx.Response,

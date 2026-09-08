@@ -84,3 +84,50 @@ class GitHubClient(Protocol):
         environment: str,
     ) -> None:
         ...
+
+    def get_environment_variable(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+    ) -> dict | None:
+        ...
+
+    def set_environment_variable(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+        value: str,
+    ) -> None:
+        ...
+
+    def get_environment_secret_public_key(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+    ) -> dict:
+        ...
+
+    def get_environment_secret(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+    ) -> dict | None:
+        ...
+
+    def set_environment_secret(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+        encrypted_value: str,
+        key_id: str,
+    ) -> None:
+        ...

@@ -95,3 +95,61 @@ def set_repository_secret_operation(
         )
 
     return operation
+
+def set_environment_secret_operation(
+    client: GitHubClient,
+    target: ConfigurationTarget,
+    value: str,
+    dry_run: bool = False,
+):
+    """Create an operation that sets an environment secret."""
+
+    if target.kind != ConfigurationKind.SECRET:
+        raise ValueError("Target must be an environment secret.")
+
+    if target.environment is None:
+        raise ValueError("Environment is required for environment secrets.")
+
+    def operation(repository: RepositoryTarget) -> RepositoryResult:
+        if dry_run:
+            return RepositoryResult(
+                owner=repository.owner,
+                repository=repository.name,
+                status=OperationStatus.SKIPPED,
+                message=(
+                    f"Would set environment secret "
+                    f"'{target.name}' in '{target.environment}'."
+                ),
+            )
+
+        public_key = client.get_environment_secret_public_key(
+            owner=repository.owner,
+            repository=repository.name,
+            environment=target.environment,
+        )
+
+        encrypted_value = encrypt_secret(
+            public_key=public_key["key"],
+            secret_value=value,
+        )
+
+        client.set_environment_secret(
+            owner=repository.owner,
+            repository=repository.name,
+            environment=target.environment,
+            name=target.name,
+            encrypted_value=encrypted_value,
+            key_id=public_key["key_id"],
+        )
+
+        return RepositoryResult(
+            owner=repository.owner,
+            repository=repository.name,
+            status=OperationStatus.SUCCESS,
+            message=(
+                f"Set environment secret "
+                f"'{target.name}' in '{target.environment}'."
+            ),
+        )
+
+    return operation

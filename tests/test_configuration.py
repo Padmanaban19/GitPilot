@@ -7,6 +7,7 @@ from gitpilot.core.configuration import (
 )
 from gitpilot.core.configuration_operations import (
     set_configuration_operation,
+    set_environment_secret_operation,
     set_repository_secret_operation,
 )
 from gitpilot.core.repositories import RepositoryTarget
@@ -252,3 +253,71 @@ def test_set_repository_secret_operation_encrypts_value():
     ).decode("utf-8")
 
     assert decrypted == "super-secret"
+
+def test_set_environment_secret_operation_encrypts_value() -> None:
+    client = FakeGitHubClient()
+
+    target = ConfigurationTarget(
+        owner="acme",
+        repository="app",
+        kind=ConfigurationKind.SECRET,
+        name="API_KEY",
+        environment="production",
+    )
+
+    operation = set_environment_secret_operation(
+        client=client,
+        target=target,
+        value="super-secret",
+    )
+
+    result = operation(
+        RepositoryTarget(
+            owner="acme",
+            name="app",
+        )
+    )
+
+    assert result.status == OperationStatus.SUCCESS
+    assert result.message == (
+        "Set environment secret 'API_KEY' in 'production'."
+    )
+
+    secret = client.environment_secrets[0]
+
+    assert secret.name == "API_KEY"
+    assert secret.key_id == "fake-environment-key-id"
+    assert secret.encrypted_value != "super-secret"
+    assert secret.encrypted_value
+
+
+def test_set_environment_secret_operation_dry_run_does_not_store_secret() -> None:
+    client = FakeGitHubClient()
+
+    target = ConfigurationTarget(
+        owner="acme",
+        repository="app",
+        kind=ConfigurationKind.SECRET,
+        name="API_KEY",
+        environment="production",
+    )
+
+    operation = set_environment_secret_operation(
+        client=client,
+        target=target,
+        value="super-secret",
+        dry_run=True,
+    )
+
+    result = operation(
+        RepositoryTarget(
+            owner="acme",
+            name="app",
+        )
+    )
+
+    assert result.status == OperationStatus.SKIPPED
+    assert result.message == (
+        "Would set environment secret 'API_KEY' in 'production'."
+    )
+    assert client.environment_secrets == []
