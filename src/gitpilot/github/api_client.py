@@ -397,6 +397,47 @@ class GitHubApiClient:
         if response.status_code not in {201, 204}:
             self._raise_for_status(response)
 
+    def delete_environment_variable(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+    ) -> None:
+        environment_path = quote(environment, safe="")
+
+        response = self._request(
+            "DELETE",
+            f"/repos/{owner}/{repository}/environments/"
+            f"{environment_path}/variables/{name}",
+        )
+
+        if response.status_code == 404:
+            return
+
+        self._raise_for_status(response)
+
+
+    def delete_environment_secret(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+    ) -> None:
+        environment_path = quote(environment, safe="")
+
+        response = self._request(
+            "DELETE",
+            f"/repos/{owner}/{repository}/environments/"
+            f"{environment_path}/secrets/{name}",
+        )
+
+        if response.status_code == 404:
+            return
+
+        self._raise_for_status(response)
+
     def _raise_for_status(
         self,
         response: httpx.Response,

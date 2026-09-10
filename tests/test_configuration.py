@@ -6,6 +6,8 @@ from gitpilot.core.configuration import (
     ConfigurationTarget,
 )
 from gitpilot.core.configuration_operations import (
+    delete_environment_secret_operation,
+    delete_environment_variable_operation,
     set_configuration_operation,
     set_environment_secret_operation,
     set_repository_secret_operation,
@@ -321,3 +323,149 @@ def test_set_environment_secret_operation_dry_run_does_not_store_secret() -> Non
         "Would set environment secret 'API_KEY' in 'production'."
     )
     assert client.environment_secrets == []
+
+def test_delete_environment_variable_operation() -> None:
+    client = FakeGitHubClient()
+
+    client.set_environment_variable(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_URL",
+        value="https://api.example.com",
+    )
+
+    target = ConfigurationTarget(
+        owner="acme",
+        repository="app",
+        kind=ConfigurationKind.VARIABLE,
+        name="API_URL",
+        environment="production",
+    )
+
+    operation = delete_environment_variable_operation(
+        client=client,
+        target=target,
+    )
+
+    result = operation(
+        RepositoryTarget(
+            owner="acme",
+            name="app",
+        )
+    )
+
+    assert result.status == OperationStatus.SUCCESS
+    assert result.message == (
+        "Deleted environment variable 'API_URL' in 'production'."
+    )
+    assert client.get_environment_variable(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_URL",
+    ) is None
+
+
+def test_delete_environment_variable_operation_dry_run() -> None:
+    client = FakeGitHubClient()
+
+    target = ConfigurationTarget(
+        owner="acme",
+        repository="app",
+        kind=ConfigurationKind.VARIABLE,
+        name="API_URL",
+        environment="production",
+    )
+
+    operation = delete_environment_variable_operation(
+        client=client,
+        target=target,
+        dry_run=True,
+    )
+
+    result = operation(
+        RepositoryTarget(
+            owner="acme",
+            name="app",
+        )
+    )
+
+    assert result.status == OperationStatus.SKIPPED
+    assert result.message == (
+        "Would delete environment variable 'API_URL' in 'production'."
+    )
+
+
+def test_delete_environment_secret_operation() -> None:
+    client = FakeGitHubClient()
+
+    client.set_environment_secret(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_KEY",
+        encrypted_value="encrypted-value",
+        key_id="fake-key-id",
+    )
+
+    target = ConfigurationTarget(
+        owner="acme",
+        repository="app",
+        kind=ConfigurationKind.SECRET,
+        name="API_KEY",
+        environment="production",
+    )
+
+    operation = delete_environment_secret_operation(
+        client=client,
+        target=target,
+    )
+
+    result = operation(
+        RepositoryTarget(
+            owner="acme",
+            name="app",
+        )
+    )
+
+    assert result.status == OperationStatus.SUCCESS
+    assert result.message == (
+        "Deleted environment secret 'API_KEY' in 'production'."
+    )
+    assert client.get_environment_secret(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_KEY",
+    ) is None
+
+
+def test_delete_environment_secret_operation_dry_run() -> None:
+    client = FakeGitHubClient()
+
+    target = ConfigurationTarget(
+        owner="acme",
+        repository="app",
+        kind=ConfigurationKind.SECRET,
+        name="API_KEY",
+        environment="production",
+    )
+
+    operation = delete_environment_secret_operation(
+        client=client,
+        target=target,
+        dry_run=True,
+    )
+
+    result = operation(
+        RepositoryTarget(
+            owner="acme",
+            name="app",
+        )
+    )
+
+    assert result.status == OperationStatus.SKIPPED
+    assert result.message == (
+        "Would delete environment secret 'API_KEY' in 'production'."
+    )

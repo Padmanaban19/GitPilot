@@ -934,3 +934,87 @@ def test_set_environment_secret_accepts_update_and_encodes_environment() -> None
         "encrypted_value": "encrypted-value",
         "key_id": "environment-key-id",
     }
+
+def test_delete_environment_variable() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(204)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    client.delete_environment_variable(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_URL",
+    )
+
+    request = client._client.request.call_args
+
+    assert request.args == (
+        "DELETE",
+        "/repos/acme/app/environments/production/variables/API_URL",
+    )
+
+
+def test_delete_environment_variable_returns_safely_when_missing() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(404)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    client.delete_environment_variable(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_URL",
+    )
+
+
+def test_delete_environment_secret() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(204)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    client.delete_environment_secret(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_KEY",
+    )
+
+    request = client._client.request.call_args
+
+    assert request.args == (
+        "DELETE",
+        "/repos/acme/app/environments/production/secrets/API_KEY",
+    )
+
+
+def test_delete_environment_secret_encodes_environment_name() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(204)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    client.delete_environment_secret(
+        owner="acme",
+        repository="app",
+        environment="production/release",
+        name="API_KEY",
+    )
+
+    request = client._client.request.call_args
+
+    assert request.args == (
+        "DELETE",
+        "/repos/acme/app/environments/production%2Frelease/secrets/API_KEY",
+    )

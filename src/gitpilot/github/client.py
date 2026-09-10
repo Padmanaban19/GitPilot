@@ -131,3 +131,21 @@ class GitHubClient(Protocol):
         key_id: str,
     ) -> None:
         ...
+
+    def delete_environment_variable(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+    ) -> None:
+        ...
+
+    def delete_environment_secret(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+    ) -> None:
+        ...

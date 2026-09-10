@@ -341,3 +341,40 @@ class FakeGitHubClient:
                 key_id=key_id,
             )
         )
+
+    def delete_environment_variable(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+    ) -> None:
+        self.environment_variables = [
+            item
+            for item in self.environment_variables
+            if not (
+                item.owner == owner
+                and item.repository == repository
+                and item.environment == environment
+                and item.name == name
+            )
+        ]
+
+
+    def delete_environment_secret(
+        self,
+        owner: str,
+        repository: str,
+        environment: str,
+        name: str,
+    ) -> None:
+        self.environment_secrets = [
+            item
+            for item in self.environment_secrets
+            if not (
+                item.owner == owner
+                and item.repository == repository
+                and item.environment == environment
+                and item.name == name
+            )
+        ]

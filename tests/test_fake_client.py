@@ -381,3 +381,55 @@ def test_environment_secrets_are_isolated_by_environment() -> None:
         environment="staging",
         name="API_KEY",
     ) == {"name": "API_KEY"}
+
+def test_environment_variable_can_be_deleted() -> None:
+    client = FakeGitHubClient()
+
+    client.set_environment_variable(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_URL",
+        value="https://api.example.com",
+    )
+
+    client.delete_environment_variable(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_URL",
+    )
+
+    assert client.get_environment_variable(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_URL",
+    ) is None
+
+
+def test_environment_secret_can_be_deleted() -> None:
+    client = FakeGitHubClient()
+
+    client.set_environment_secret(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_KEY",
+        encrypted_value="encrypted-value",
+        key_id="fake-key-id",
+    )
+
+    client.delete_environment_secret(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_KEY",
+    )
+
+    assert client.get_environment_secret(
+        owner="acme",
+        repository="app",
+        environment="production",
+        name="API_KEY",
+    ) is None
