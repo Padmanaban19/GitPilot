@@ -133,6 +133,24 @@ class FakeGitHubClient:
             "key_id": "fake-key-id",
             "key": self._secret_public_key,
         }
+
+    def get_repository_secret(
+        self,
+        owner: str,
+        repository: str,
+        name: str,
+    ) -> dict[str, str] | None:
+        """Get repository secret metadata."""
+        for item in self.repository_secrets:
+            if (
+                item.owner == owner
+                and item.repository == repository
+                and item.name == name
+            ):
+                return {"name": item.name}
+
+        return None
+
     def set_repository_secret(
         self,
         owner: str,

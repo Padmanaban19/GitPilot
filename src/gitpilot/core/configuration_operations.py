@@ -46,6 +46,52 @@ def set_configuration_operation(
 
     return operation
 
+
+def set_environment_variable_operation(
+    client: GitHubClient,
+    target: ConfigurationTarget,
+    value: str,
+    dry_run: bool = False,
+):
+    """Create an operation that sets an environment variable."""
+    if target.kind != ConfigurationKind.VARIABLE:
+        raise ValueError("Target must be an environment variable.")
+    if target.environment is None:
+        raise ValueError("Environment is required for environment variables.")
+
+    def operation(repository: RepositoryTarget) -> RepositoryResult:
+        if dry_run:
+            return RepositoryResult(
+                owner=repository.owner,
+                repository=repository.name,
+                status=OperationStatus.SKIPPED,
+                message=(
+                    f"Would set environment variable "
+                    f"'{target.name}' in '{target.environment}'."
+                ),
+            )
+
+        client.set_environment_variable(
+            owner=repository.owner,
+            repository=repository.name,
+            environment=target.environment,
+            name=target.name,
+            value=value,
+        )
+
+        return RepositoryResult(
+            owner=repository.owner,
+            repository=repository.name,
+            status=OperationStatus.SUCCESS,
+            message=(
+                f"Set environment variable "
+                f"'{target.name}' in '{target.environment}'."
+            ),
+        )
+
+    return operation
+
+
 def set_repository_secret_operation(
     client: GitHubClient,
     target: ConfigurationTarget,
@@ -95,6 +141,7 @@ def set_repository_secret_operation(
         )
 
     return operation
+
 
 def set_environment_secret_operation(
     client: GitHubClient,
@@ -153,6 +200,7 @@ def set_environment_secret_operation(
         )
 
     return operation
+
 
 def delete_environment_variable_operation(
     client: GitHubClient,
@@ -239,6 +287,78 @@ def delete_environment_secret_operation(
                 f"Deleted environment secret "
                 f"'{target.name}' in '{target.environment}'."
             ),
+        )
+
+    return operation
+
+
+def delete_repository_variable_operation(
+    client: GitHubClient,
+    target: ConfigurationTarget,
+    dry_run: bool = False,
+):
+    """Create an operation that deletes a repository variable."""
+    if target.kind != ConfigurationKind.VARIABLE:
+        raise ValueError("Target must be a repository variable.")
+    if target.environment is not None:
+        raise ValueError("Environment must not be set for repository variables.")
+
+    def operation(repository: RepositoryTarget) -> RepositoryResult:
+        if dry_run:
+            return RepositoryResult(
+                owner=repository.owner,
+                repository=repository.name,
+                status=OperationStatus.SKIPPED,
+                message=f"Would delete repository variable '{target.name}'.",
+            )
+
+        client.delete_repository_variable(
+            owner=repository.owner,
+            repository=repository.name,
+            name=target.name,
+        )
+
+        return RepositoryResult(
+            owner=repository.owner,
+            repository=repository.name,
+            status=OperationStatus.SUCCESS,
+            message=f"Deleted repository variable '{target.name}'.",
+        )
+
+    return operation
+
+
+def delete_repository_secret_operation(
+    client: GitHubClient,
+    target: ConfigurationTarget,
+    dry_run: bool = False,
+):
+    """Create an operation that deletes a repository secret."""
+    if target.kind != ConfigurationKind.SECRET:
+        raise ValueError("Target must be a repository secret.")
+    if target.environment is not None:
+        raise ValueError("Environment must not be set for repository secrets.")
+
+    def operation(repository: RepositoryTarget) -> RepositoryResult:
+        if dry_run:
+            return RepositoryResult(
+                owner=repository.owner,
+                repository=repository.name,
+                status=OperationStatus.SKIPPED,
+                message=f"Would delete repository secret '{target.name}'.",
+            )
+
+        client.delete_repository_secret(
+            owner=repository.owner,
+            repository=repository.name,
+            name=target.name,
+        )
+
+        return RepositoryResult(
+            owner=repository.owner,
+            repository=repository.name,
+            status=OperationStatus.SUCCESS,
+            message=f"Deleted repository secret '{target.name}'.",
         )
 
     return operation

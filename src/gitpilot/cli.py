@@ -1,6 +1,7 @@
 import typer
 
 from gitpilot.commands.branch import app as branch_app
+from gitpilot.commands.config import app as config_app
 
 app = typer.Typer(
     name="gitpilot",
@@ -13,6 +14,7 @@ secret_app = typer.Typer(
 
 app.add_typer(branch_app, name="branch")
 app.add_typer(secret_app, name="secret")
+app.add_typer(config_app, name="config")
 
 
 @app.command()
