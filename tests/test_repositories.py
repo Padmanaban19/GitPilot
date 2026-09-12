@@ -77,3 +77,16 @@ def test_parse_repositories_file_rejects_missing_file(tmp_path):
             "company",
             str(repos_file),
         )
+
+
+def test_parse_repositories_removes_duplicates_preserving_order():
+    repositories = parse_repositories(
+        "company",
+        "repoA,repoB,repoA,repoC,repoB",
+    )
+
+    assert [repo.name for repo in repositories] == [
+        "repoA",
+        "repoB",
+        "repoC",
+    ]

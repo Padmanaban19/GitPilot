@@ -230,36 +230,28 @@ def set(
         repositories = parse_repositories(owner, repos)
 
 
-    targets = [
-        ConfigurationTarget(
-            owner=owner,
-            repository=repository.name,
-            kind=kind,
-            name=name,
-            environment=environment,
-        )
-        for repository in repositories
-    ]
-
-    results = []
+    target = ConfigurationTarget(
+        owner=owner,
+        repository=repositories[0].name,
+        kind=kind,
+        name=name,
+        environment=environment,
+    )
 
     with GitHubApiClient() as client:
-        for target, repository in zip(targets, repositories):
-            operation = _create_set_operation(
-                client=client,
-                target=target,
-                value=value,
-                environment=environment,
-                secret=secret,
-                dry_run=dry_run,
-            )
+        operation = _create_set_operation(
+            client=client,
+            target=target,
+            value=value,
+            environment=environment,
+            secret=secret,
+            dry_run=dry_run,
+        )
 
-            result = execute_bulk(
-                [repository],
-                operation,
-            )[0]
-
-            results.append(result)
+        results = execute_bulk(
+            repositories,
+            operation,
+        )
 
     _print_summary(results)
 
@@ -364,31 +356,29 @@ def delete(
     else:
         repositories = parse_repositories(owner, repos)
 
-    results = []
+    kind = _configuration_kind(secret)
+
+    target = ConfigurationTarget(
+        owner=owner,
+        repository=repositories[0].name,
+        kind=kind,
+        name=name,
+        environment=environment,
+    )
 
     with GitHubApiClient() as client:
-        for repository in repositories:
-            target = ConfigurationTarget(
-                owner=repository.owner,
-                repository=repository.name,
-                kind=_configuration_kind(secret),
-                name=name,
-                environment=environment,
-            )
+        operation = _create_delete_operation(
+            client=client,
+            target=target,
+            environment=environment,
+            secret=secret,
+            dry_run=dry_run,
+        )
 
-            operation = _create_delete_operation(
-                client=client,
-                target=target,
-                environment=environment,
-                secret=secret,
-                dry_run=dry_run,
-            )
-
-            result = execute_bulk(
-                [repository],
-                operation,
-            )[0]
-
-            results.append(result)
+        results = execute_bulk(
+            repositories,
+            operation,
+        )
 
     _print_summary(results)
+    

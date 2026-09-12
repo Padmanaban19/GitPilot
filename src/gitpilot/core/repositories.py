@@ -23,11 +23,15 @@ def _build_targets(
 ) -> list[RepositoryTarget]:
     owner = _validate_owner(owner)
 
-    cleaned_names = [
-        name.strip()
-        for name in repository_names
-        if name.strip()
-    ]
+    cleaned_names = []
+    seen = set()
+
+    for name in repository_names:
+        name = name.strip()
+
+        if name and name not in seen:
+            cleaned_names.append(name)
+            seen.add(name)
 
     if not cleaned_names:
         raise ValueError("At least one repository must be provided.")
