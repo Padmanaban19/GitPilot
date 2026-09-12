@@ -20,6 +20,8 @@ class GitHubApiClient:
         self,
         token: str | None = None,
         retry_delay: float = RETRY_DELAY,
+        timeout: float = 10.0,
+        max_retries: int = MAX_RETRIES,
     ) -> None:
         if token is None:
             token = get_github_token()
@@ -28,16 +30,32 @@ class GitHubApiClient:
             raise ValueError("GitHub token cannot be empty.")
 
         self._retry_delay = retry_delay
+        self._max_retries = max_retries
 
         self._client = httpx.Client(
             base_url="https://api.github.com",
-            timeout=10.0,
+            timeout=timeout,
             headers={
                 "Accept": "application/vnd.github+json",
                 "Authorization": f"Bearer {token}",
                 "X-GitHub-Api-Version": "2022-11-28",
             },
         )
+
+    def _get_retry_delay(
+        self,
+        response: httpx.Response,
+        attempt: int,
+    ) -> float:
+        retry_after = response.headers.get("Retry-After")
+
+        if retry_after is not None:
+            try:
+                return float(retry_after)
+            except ValueError:
+                pass
+
+        return self._retry_delay * (2**attempt)
 
     def _request(
         self,
@@ -47,8 +65,14 @@ class GitHubApiClient:
     ) -> httpx.Response:
         """Make an HTTP request with retries for transient failures."""
 
-        for attempt in range(MAX_RETRIES + 1):
-            response = self._client.request(method, url, **kwargs)
+        for attempt in range(self._max_retries + 1):
+            try:
+                response = self._client.request(method, url, **kwargs)
+            except httpx.RequestError:
+                if attempt == self._max_retries:
+                    raise
+                time.sleep(self._retry_delay * (2**attempt))
+                continue
 
             if response.status_code not in RETRYABLE_STATUS_CODES:
                 return response
@@ -56,7 +80,7 @@ class GitHubApiClient:
             if attempt == MAX_RETRIES:
                 return response
 
-            time.sleep(self._retry_delay)
+            time.sleep(self._get_retry_delay(response, attempt))
 
         raise RuntimeError("Unexpected retry state.")
 

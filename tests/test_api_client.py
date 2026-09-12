@@ -197,6 +197,45 @@ def test_client_uses_ten_second_timeout() -> None:
     client.close()
 
 
+def test_client_accepts_custom_timeout() -> None:
+    client = GitHubApiClient(
+        token="test-token",
+        timeout=30.0,
+    )
+
+    assert client._client.timeout.read == 30.0
+
+    client.close()
+
+
+def test_client_accepts_custom_max_retries() -> None:
+    client = GitHubApiClient(
+        token="test-token",
+        max_retries=5,
+    )
+
+    assert client._max_retries == 5
+
+    client.close()
+        
+
+def test_raise_for_status_uses_github_error_message() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(
+        403,
+        json={"message": "Resource access denied"},
+    )
+
+    with pytest.raises(GitHubApiError) as exc_info:
+        client._raise_for_status(response)
+
+    assert exc_info.value.status_code == 403
+    assert exc_info.value.message == "Resource access denied"
+
+    client.close()
+
+
 def test_client_context_manager_closes_client() -> None:
     with GitHubApiClient(token="test-token") as client:
         assert not client._client.is_closed
@@ -251,6 +290,100 @@ def test_request_stops_after_max_retries() -> None:
     assert attempts == 4
 
     client.close()
+
+
+def test_request_retries_network_errors() -> None:
+    client = GitHubApiClient(token="test-token", retry_delay=0)
+
+    attempts = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+
+        if attempts < 3:
+            raise httpx.ConnectError(
+                "Connection failed",
+                request=request,
+            )
+
+        return httpx.Response(200)
+
+    client._client = httpx.Client(
+        base_url="https://api.github.com",
+        transport=httpx.MockTransport(handler),
+    )
+
+    response = client._request("GET", "/test")
+
+    assert response.status_code == 200
+    assert attempts == 3
+
+    client.close()
+
+
+def test_request_uses_exponential_backoff(monkeypatch) -> None:
+    client = GitHubApiClient(token="test-token", retry_delay=1)
+
+    responses = [
+        httpx.Response(503),
+        httpx.Response(503),
+        httpx.Response(200),
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return responses.pop(0)
+
+    client._client = httpx.Client(
+        base_url="https://api.github.com",
+        transport=httpx.MockTransport(handler),
+    )
+
+    delays: list[float] = []
+
+    monkeypatch.setattr(
+        "gitpilot.github.api_client.time.sleep",
+        delays.append,
+    )
+
+    response = client._request("GET", "/test")
+
+    assert response.status_code == 200
+    assert delays == [1, 2]
+
+    client.close()
+
+
+def test_request_respects_retry_after_header(monkeypatch) -> None:
+    client = GitHubApiClient(token="test-token", retry_delay=1)
+
+    responses = [
+        httpx.Response(429, headers={"Retry-After": "5"}),
+        httpx.Response(200),
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return responses.pop(0)
+
+    client._client = httpx.Client(
+        base_url="https://api.github.com",
+        transport=httpx.MockTransport(handler),
+    )
+
+    delays: list[float] = []
+
+    monkeypatch.setattr(
+        "gitpilot.github.api_client.time.sleep",
+        delays.append,
+    )
+
+    response = client._request("GET", "/test")
+
+    assert response.status_code == 200
+    assert delays == [5]
+
+    client.close()
+
 
 def test_get_repository_variable_success():
     client = GitHubApiClient(token="test-token")
@@ -1018,3 +1151,20 @@ def test_delete_environment_secret_encodes_environment_name() -> None:
         "DELETE",
         "/repos/acme/app/environments/production%2Frelease/secrets/API_KEY",
     )
+
+
+def test_raise_for_status_falls_back_to_response_text() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(
+        500,
+        content=b"Internal server failure",
+    )
+
+    with pytest.raises(GitHubApiError) as exc_info:
+        client._raise_for_status(response)
+
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.message == "Internal server failure"
+
+    client.close()
