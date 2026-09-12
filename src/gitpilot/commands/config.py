@@ -15,7 +15,10 @@ from gitpilot.core.configuration_operations import (
     set_repository_secret_operation,
 )
 from gitpilot.core.executor import execute_bulk
-from gitpilot.core.repositories import parse_repositories
+from gitpilot.core.repositories import (
+    parse_repositories,
+    parse_repositories_file,
+)
 from gitpilot.core.results import OperationStatus, summarize_results
 from gitpilot.github.api_client import GitHubApiClient
 
@@ -169,7 +172,15 @@ def _print_summary(results) -> None:
 @app.command()
 def set(
     owner: str = typer.Option(..., help="GitHub organization or user."),
-    repos: str = typer.Option(..., help="Comma-separated repository names."),
+    repos: str | None = typer.Option(
+        None,
+        help="Comma-separated repository names.",
+    ),
+    repo_file: str | None = typer.Option(
+        None,
+        "--repo-file",
+        help="Path to a file containing repository names.",
+    ),
     name: str = typer.Option(..., help="Configuration name."),
     value: str | None = typer.Option(
         None,
@@ -203,7 +214,21 @@ def set(
         )
 
     kind = _configuration_kind(secret)
-    repositories = parse_repositories(owner, repos)
+    if repos and repo_file:
+        raise typer.BadParameter(
+            "Use either --repos or --repo-file, not both."
+        )
+
+    if not repos and not repo_file:
+        raise typer.BadParameter(
+            "Either --repos or --repo-file is required."
+        )
+
+    if repo_file:
+        repositories = parse_repositories_file(owner, repo_file)
+    else:
+        repositories = parse_repositories(owner, repos)
+
 
     targets = [
         ConfigurationTarget(
@@ -242,8 +267,15 @@ def set(
 @app.command()
 def get(
     owner: str = typer.Option(..., help="GitHub organization or user."),
-    repos: str = typer.Option(..., help="Comma-separated repository names."),
-    name: str = typer.Option(..., help="Configuration name."),
+    repos: str | None = typer.Option(
+        None,
+        help="Comma-separated repository names.",
+    ),
+    repo_file: str | None = typer.Option(
+        None,
+        "--repo-file",
+        help="Path to a file containing repository names.",
+    ),    name: str = typer.Option(..., help="Configuration name."),
     environment: str | None = typer.Option(
         None,
         help="GitHub environment name.",
@@ -255,7 +287,20 @@ def get(
     ),
 ) -> None:
     """Get a repository or environment configuration value."""
-    repositories = parse_repositories(owner, repos)
+    if repos and repo_file:
+        raise typer.BadParameter(
+            "Use either --repos or --repo-file, not both."
+        )
+
+    if not repos and not repo_file:
+        raise typer.BadParameter(
+            "Either --repos or --repo-file is required."
+        )
+
+    if repo_file:
+        repositories = parse_repositories_file(owner, repo_file)
+    else:
+        repositories = parse_repositories(owner, repos)
 
     with GitHubApiClient() as client:
         for repository in repositories:
@@ -278,7 +323,15 @@ def get(
 @app.command()
 def delete(
     owner: str = typer.Option(..., help="GitHub organization or user."),
-    repos: str = typer.Option(..., help="Comma-separated repository names."),
+    repos: str | None = typer.Option(
+        None,
+        help="Comma-separated repository names.",
+    ),
+    repo_file: str | None = typer.Option(
+        None,
+        "--repo-file",
+        help="Path to a file containing repository names.",
+    ),
     name: str = typer.Option(..., help="Configuration name."),
     environment: str | None = typer.Option(
         None,
@@ -296,7 +349,20 @@ def delete(
     ),
 ) -> None:
     """Delete a repository or environment configuration value."""
-    repositories = parse_repositories(owner, repos)
+    if repos and repo_file:
+        raise typer.BadParameter(
+            "Use either --repos or --repo-file, not both."
+        )
+
+    if not repos and not repo_file:
+        raise typer.BadParameter(
+            "Either --repos or --repo-file is required."
+        )
+
+    if repo_file:
+        repositories = parse_repositories_file(owner, repo_file)
+    else:
+        repositories = parse_repositories(owner, repos)
 
     results = []
 

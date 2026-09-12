@@ -697,3 +697,185 @@ def test_config_delete_environment_secret_dry_run(monkeypatch):
     ) in result.output
     assert "Total:   2" in result.output
     assert "Skipped: 2" in result.output
+
+def test_config_set_repo_file_dry_run(monkeypatch, tmp_path):
+    client = FakeGitHubClient()
+    repos_file = tmp_path / "repos.txt"
+    repos_file.write_text(
+        "# Production repositories\nrepoA\nrepoB\n\n",
+        encoding="utf-8",
+    )
+
+    class FakeClientContext:
+        def __enter__(self):
+            return client
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+    monkeypatch.setattr(
+        "gitpilot.commands.config.GitHubApiClient",
+        FakeClientContext,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "config",
+            "set",
+            "--owner",
+            "company",
+            "--repo-file",
+            str(repos_file),
+            "--name",
+            "TEST_VAR",
+            "--value",
+            "hello",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "repoA: Would set repository variable 'TEST_VAR'." in result.output
+    assert "repoB: Would set repository variable 'TEST_VAR'." in result.output
+    assert "Total:   2" in result.output
+    assert "Skipped: 2" in result.output
+
+
+def test_config_get_repo_file(monkeypatch, tmp_path):
+    client = FakeGitHubClient()
+    client.set_repository_variable(
+        owner="company",
+        repository="repoA",
+        name="TEST_VAR",
+        value="valueA",
+    )
+    client.set_repository_variable(
+        owner="company",
+        repository="repoB",
+        name="TEST_VAR",
+        value="valueB",
+    )
+
+    repos_file = tmp_path / "repos.txt"
+    repos_file.write_text(
+        "repoA\n# ignored\nrepoB\n",
+        encoding="utf-8",
+    )
+
+    class FakeClientContext:
+        def __enter__(self):
+            return client
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+    monkeypatch.setattr(
+        "gitpilot.commands.config.GitHubApiClient",
+        FakeClientContext,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "config",
+            "get",
+            "--owner",
+            "company",
+            "--repo-file",
+            str(repos_file),
+            "--name",
+            "TEST_VAR",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "repoA: valueA" in result.output
+    assert "repoB: valueB" in result.output
+
+
+def test_config_delete_repo_file_dry_run(monkeypatch, tmp_path):
+    client = FakeGitHubClient()
+    repos_file = tmp_path / "repos.txt"
+    repos_file.write_text(
+        "repoA\nrepoB\n",
+        encoding="utf-8",
+    )
+
+    class FakeClientContext:
+        def __enter__(self):
+            return client
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+    monkeypatch.setattr(
+        "gitpilot.commands.config.GitHubApiClient",
+        FakeClientContext,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "config",
+            "delete",
+            "--owner",
+            "company",
+            "--repo-file",
+            str(repos_file),
+            "--name",
+            "TEST_VAR",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "repoA: Would delete repository variable 'TEST_VAR'." in result.output
+    assert "repoB: Would delete repository variable 'TEST_VAR'." in result.output
+    assert "Total:   2" in result.output
+    assert "Skipped: 2" in result.output
+
+
+def test_config_set_rejects_both_repos_and_repo_file(tmp_path):
+    repos_file = tmp_path / "repos.txt"
+    repos_file.write_text("repoA\n", encoding="utf-8")
+
+    result = runner.invoke(
+        app,
+        [
+            "config",
+            "set",
+            "--owner",
+            "company",
+            "--repos",
+            "repoA",
+            "--repo-file",
+            str(repos_file),
+            "--name",
+            "TEST_VAR",
+            "--value",
+            "hello",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Use either --repos or --repo-file, not both." in result.output
+
+
+def test_config_set_requires_repos_or_repo_file():
+    result = runner.invoke(
+        app,
+        [
+            "config",
+            "set",
+            "--owner",
+            "company",
+            "--name",
+            "TEST_VAR",
+            "--value",
+            "hello",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "Either --repos or --repo-file is required." in result.output
