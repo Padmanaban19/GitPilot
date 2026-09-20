@@ -123,6 +123,23 @@ class FakeGitHubClient:
             )
         )
 
+    def delete_repository_variable(
+        self,
+        owner: str,
+        repository: str,
+        name: str,
+    ) -> None:
+        self.repository_variables = [
+            variable
+            for variable in self.repository_variables
+            if not (
+                variable.owner == owner
+                and variable.repository == repository
+                and variable.name == name
+            )
+        ]
+
+
     def get_repository_secret_public_key(
         self,
         owner: str,
@@ -179,6 +196,23 @@ class FakeGitHubClient:
                 key_id=key_id,
             )
         )
+
+
+    def delete_repository_secret(
+        self,
+        owner: str,
+        repository: str,
+        name: str,
+    ) -> None:
+        self.repository_secrets = [
+            secret
+            for secret in self.repository_secrets
+            if not (
+                secret.owner == owner
+                and secret.repository == repository
+                and secret.name == name
+            )
+        ]
 
     def get_environment(
         self,

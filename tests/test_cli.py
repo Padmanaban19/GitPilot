@@ -536,6 +536,13 @@ def test_config_get_not_found(monkeypatch):
 def test_config_delete_repository_variable_dry_run(monkeypatch):
     client = FakeGitHubClient()
 
+    client.set_repository_variable(
+        owner="company",
+        repository="repoA",
+        name="TEST_VAR",
+        value="hello",
+    )
+
     class FakeClientContext:
         def __enter__(self):
             return client
@@ -568,6 +575,11 @@ def test_config_delete_repository_variable_dry_run(monkeypatch):
     assert "repoB: Would delete repository variable 'TEST_VAR'." in result.output
     assert "Total:   2" in result.output
     assert "Skipped: 2" in result.output
+    assert client.get_repository_variable(
+        owner="company",
+        repository="repoA",
+        name="TEST_VAR",
+    ) is not None
 
 
 def test_config_delete_repository_secret_dry_run(monkeypatch):
@@ -725,7 +737,7 @@ def test_config_set_repo_file_dry_run(monkeypatch, tmp_path):
             "set",
             "--owner",
             "company",
-            "--repo-file",
+            "--repos-file",
             str(repos_file),
             "--name",
             "TEST_VAR",
@@ -782,7 +794,7 @@ def test_config_get_repo_file(monkeypatch, tmp_path):
             "get",
             "--owner",
             "company",
-            "--repo-file",
+            "--repos-file",
             str(repos_file),
             "--name",
             "TEST_VAR",
@@ -821,7 +833,7 @@ def test_config_delete_repo_file_dry_run(monkeypatch, tmp_path):
             "delete",
             "--owner",
             "company",
-            "--repo-file",
+            "--repos-file",
             str(repos_file),
             "--name",
             "TEST_VAR",
@@ -849,7 +861,7 @@ def test_config_set_rejects_both_repos_and_repo_file(tmp_path):
             "company",
             "--repos",
             "repoA",
-            "--repo-file",
+            "--repos-file",
             str(repos_file),
             "--name",
             "TEST_VAR",
@@ -859,7 +871,7 @@ def test_config_set_rejects_both_repos_and_repo_file(tmp_path):
     )
 
     assert result.exit_code != 0
-    assert "Use either --repos or --repo-file, not both." in result.output
+    assert "Use either --repos or --repos-file, not both." in result.output
 
 
 def test_config_set_requires_repos_or_repo_file():
@@ -878,4 +890,136 @@ def test_config_set_requires_repos_or_repo_file():
     )
 
     assert result.exit_code != 0
-    assert "Either --repos or --repo-file is required." in result.output
+    assert "Either --repos or --repos-file is required." in result.output
+
+
+def test_config_help_uses_repos_file_option():
+    result = runner.invoke(app, ["config", "set", "--help"])
+
+    assert result.exit_code == 0
+    assert "--repos-file" in result.output
+
+
+def test_config_delete_confirmation_can_cancel(monkeypatch):
+    client = FakeGitHubClient()
+
+    class FakeClientContext:
+        def __enter__(self):
+            return client
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+    monkeypatch.setattr(
+        "gitpilot.commands.config.GitHubApiClient",
+        FakeClientContext,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "config",
+            "delete",
+            "--owner",
+            "company",
+            "--repos",
+            "repoA,repoB",
+            "--name",
+            "TEST_VAR",
+        ],
+        input="n\n",
+    )
+
+    assert result.exit_code == 0
+    assert "cancel" in result.output.lower()
+
+
+def test_config_delete_yes_skips_confirmation(monkeypatch):
+    client = FakeGitHubClient()
+
+    client.set_repository_variable(
+        owner="company",
+        repository="repoA",
+        name="TEST_VAR",
+        value="hello",
+    )
+
+    class FakeClientContext:
+        def __enter__(self):
+            return client
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+    monkeypatch.setattr(
+        "gitpilot.commands.config.GitHubApiClient",
+        FakeClientContext,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "config",
+            "delete",
+            "--owner",
+            "company",
+            "--repos",
+            "repoA",
+            "--name",
+            "TEST_VAR",
+            "--yes",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Continue?" not in result.output
+    assert client.get_repository_variable(
+        owner="company",
+        repository="repoA",
+        name="TEST_VAR",
+    ) is None
+
+
+def test_config_delete_confirmation_can_proceed(monkeypatch):
+    client = FakeGitHubClient()
+    client.set_repository_variable(
+        owner="company",
+        repository="repoA",
+        name="TEST_VAR",
+        value="hello",
+    )
+
+    class FakeClientContext:
+        def __enter__(self):
+            return client
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+    monkeypatch.setattr(
+        "gitpilot.commands.config.GitHubApiClient",
+        FakeClientContext,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "config",
+            "delete",
+            "--owner",
+            "company",
+            "--repos",
+            "repoA",
+            "--name",
+            "TEST_VAR",
+        ],
+        input="y\n",
+    )
+
+    assert result.exit_code == 0
+    assert "Continue?" in result.output
+    assert client.get_repository_variable(
+        owner="company",
+        repository="repoA",
+        name="TEST_VAR",
+    ) is None

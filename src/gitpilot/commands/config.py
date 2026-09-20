@@ -178,7 +178,7 @@ def set(
     ),
     repo_file: str | None = typer.Option(
         None,
-        "--repo-file",
+        "--repos-file",
         help="Path to a file containing repository names.",
     ),
     name: str = typer.Option(..., help="Configuration name."),
@@ -216,12 +216,12 @@ def set(
     kind = _configuration_kind(secret)
     if repos and repo_file:
         raise typer.BadParameter(
-            "Use either --repos or --repo-file, not both."
+            "Use either --repos or --repos-file, not both."
         )
 
     if not repos and not repo_file:
         raise typer.BadParameter(
-            "Either --repos or --repo-file is required."
+            "Either --repos or --repos-file is required."
         )
 
     if repo_file:
@@ -265,7 +265,7 @@ def get(
     ),
     repo_file: str | None = typer.Option(
         None,
-        "--repo-file",
+        "--repos-file",
         help="Path to a file containing repository names.",
     ),    name: str = typer.Option(..., help="Configuration name."),
     environment: str | None = typer.Option(
@@ -281,12 +281,12 @@ def get(
     """Get a repository or environment configuration value."""
     if repos and repo_file:
         raise typer.BadParameter(
-            "Use either --repos or --repo-file, not both."
+            "Use either --repos or --repos-file, not both."
         )
 
     if not repos and not repo_file:
         raise typer.BadParameter(
-            "Either --repos or --repo-file is required."
+            "Either --repos or --repos-file is required."
         )
 
     if repo_file:
@@ -321,7 +321,7 @@ def delete(
     ),
     repo_file: str | None = typer.Option(
         None,
-        "--repo-file",
+        "--repos-file",
         help="Path to a file containing repository names.",
     ),
     name: str = typer.Option(..., help="Configuration name."),
@@ -339,16 +339,21 @@ def delete(
         "--dry-run",
         help="Show what would happen without making changes.",
     ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        help="Skip confirmation and proceed with deletion.",
+    ),
 ) -> None:
     """Delete a repository or environment configuration value."""
     if repos and repo_file:
         raise typer.BadParameter(
-            "Use either --repos or --repo-file, not both."
+            "Use either --repos or --repos-file, not both."
         )
 
     if not repos and not repo_file:
         raise typer.BadParameter(
-            "Either --repos or --repo-file is required."
+            "Either --repos or --repos-file is required."
         )
 
     if repo_file:
@@ -357,6 +362,16 @@ def delete(
         repositories = parse_repositories(owner, repos)
 
     kind = _configuration_kind(secret)
+
+    if not dry_run and not yes:
+        confirmed = typer.confirm(
+            f"You are about to delete {kind.value.lower()} "
+            f"'{name}' from {len(repositories)} repositories. Continue?"
+        )
+
+        if not confirmed:
+            typer.echo("Deletion cancelled.")
+            raise typer.Exit(code=0)
 
     target = ConfigurationTarget(
         owner=owner,
