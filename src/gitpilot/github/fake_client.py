@@ -10,6 +10,15 @@ class BranchCreation:
     repository: str
     source: str
     target: str
+
+
+@dataclass(frozen=True)
+class BranchDeletion:
+    owner: str
+    repository: str
+    branch: str
+
+
 @dataclass(frozen=True)
 class RepositoryVariable:
     owner: str
@@ -50,6 +59,9 @@ class FakeGitHubClient:
         self.created_branches: list[BranchCreation] = []
         self.repository_variables: list[RepositoryVariable] = []
         self.repository_secrets: list[RepositorySecret] = []
+        self.deleted_branches: list[BranchDeletion] = []
+        self.repositories: dict[tuple[str, str], dict] = {}
+        self.existing_branches: set[tuple[str, str, str]] = set()
 
         self._secret_private_key = PrivateKey.generate()
         self._secret_public_key = base64.b64encode(
@@ -76,6 +88,41 @@ class FakeGitHubClient:
             )
         )
 
+    def get_repository(
+        self,
+        owner: str,
+        repository: str,
+    ) -> dict:
+        """Get repository metadata for tests."""
+        return self.repositories.get(
+            (owner, repository),
+            {"default_branch": "main"},
+        )
+
+    def branch_exists(
+        self,
+        owner: str,
+        repository: str,
+        branch: str,
+    ) -> bool:
+        """Check whether a configured branch exists."""
+        return (owner, repository, branch) in self.existing_branches
+
+    def delete_branch(
+        self,
+        owner: str,
+        repository: str,
+        branch: str,
+    ) -> None:
+        """Record a branch deletion in tests."""
+        self.deleted_branches.append(
+            BranchDeletion(
+                owner=owner,
+                repository=repository,
+                branch=branch,
+            )
+        )
+        self.existing_branches.discard((owner, repository, branch))
 
     def get_repository_variable(
         self,

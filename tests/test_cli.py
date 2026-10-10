@@ -1170,3 +1170,122 @@ def test_environment_delete_yes_skips_confirmation(monkeypatch):
         repository="repoA",
         environment="production",
     ) is None
+
+
+
+def test_branch_delete_dry_run(monkeypatch):
+    client = FakeGitHubClient()
+    client.existing_branches.update(
+        {
+            ("company", "repoA", "dev/test"),
+            ("company", "repoB", "dev/test"),
+        }
+    )
+
+    class FakeClientContext:
+        def __enter__(self):
+            return client
+
+        def __exit__(self, *args):
+            pass
+
+    monkeypatch.setattr(
+        "gitpilot.commands.branch.GitHubApiClient",
+        FakeClientContext,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "branch",
+            "delete",
+            "--owner",
+            "company",
+            "--repos",
+            "repoA,repoB",
+            "--name",
+            "dev/test",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Would delete branch 'dev/test'." in result.output
+    assert "DRY RUN - No changes were made." in result.output
+    assert client.deleted_branches == []
+    assert ("company", "repoA", "dev/test") in client.existing_branches
+    assert ("company", "repoB", "dev/test") in client.existing_branches
+
+
+def test_branch_delete_confirmation_can_cancel(monkeypatch):
+    client = FakeGitHubClient()
+    client.existing_branches.add(("company", "repoA", "dev/test"))
+
+    class FakeClientContext:
+        def __enter__(self):
+            return client
+
+        def __exit__(self, *args):
+            pass
+
+    monkeypatch.setattr(
+        "gitpilot.commands.branch.GitHubApiClient",
+        FakeClientContext,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "branch",
+            "delete",
+            "--owner",
+            "company",
+            "--repos",
+            "repoA",
+            "--name",
+            "dev/test",
+        ],
+        input="n\n",
+    )
+
+    assert result.exit_code == 0
+    assert "Deletion cancelled." in result.output
+    assert client.deleted_branches == []
+    assert ("company", "repoA", "dev/test") in client.existing_branches
+
+
+def test_branch_delete_yes_skips_confirmation(monkeypatch):
+    client = FakeGitHubClient()
+    client.existing_branches.add(("company", "repoA", "dev/test"))
+
+    class FakeClientContext:
+        def __enter__(self):
+            return client
+
+        def __exit__(self, *args):
+            pass
+
+    monkeypatch.setattr(
+        "gitpilot.commands.branch.GitHubApiClient",
+        FakeClientContext,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "branch",
+            "delete",
+            "--owner",
+            "company",
+            "--repos",
+            "repoA",
+            "--name",
+            "dev/test",
+            "--yes",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "repoA: Deleted branch 'dev/test'." in result.output
+    assert len(client.deleted_branches) == 1
+    assert ("company", "repoA", "dev/test") not in client.existing_branches

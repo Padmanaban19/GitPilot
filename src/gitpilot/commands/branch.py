@@ -1,6 +1,9 @@
 import typer
 
-from gitpilot.core.branch_operations import create_branch_operation
+from gitpilot.core.branch_operations import (
+    create_branch_operation,
+    delete_branch_operation,
+)
 from gitpilot.core.executor import execute_bulk
 from gitpilot.core.repositories import parse_repositories, parse_repositories_file
 from gitpilot.core.results import OperationStatus, summarize_results
@@ -96,4 +99,87 @@ def create(
         typer.echo("DRY RUN - No changes were made.")
 
     if summary[OperationStatus.FAILED] > 0:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def delete(
+    owner: str = typer.Option(
+        ...,
+        help="GitHub organization or user.",
+    ),
+    repos: str | None = typer.Option(
+        None,
+        help="Comma-separated repository names.",
+    ),
+    repos_file: str | None = typer.Option(
+        None,
+        "--repos-file",
+        help="Path to a file containing repository names.",
+    ),
+    name: str = typer.Option(
+        ...,
+        help="Branch name to delete.",
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Show what would happen without making changes.",
+    ),
+    yes: bool = typer.Option(
+        False,
+        "--yes",
+        help="Skip confirmation.",
+    ),
+) -> None:
+    """Delete a branch across multiple repositories."""
+
+    if bool(repos) == bool(repos_file):
+        raise typer.BadParameter(
+            "Provide either --repos or --repos-file, but not both."
+        )
+
+    try:
+        repositories = (
+            parse_repositories(owner=owner, repos=repos)
+            if repos is not None
+            else parse_repositories_file(
+                owner=owner,
+                repos_file=repos_file,
+            )
+        )
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    if not dry_run and not yes:
+        confirmed = typer.confirm(
+            f"Delete branch '{name}' from {len(repositories)} repositories?"
+        )
+        if not confirmed:
+            typer.echo("Deletion cancelled.")
+            raise typer.Exit()
+
+    with GitHubApiClient() as client:
+        operation = delete_branch_operation(
+            client=client,
+            branch=name,
+            dry_run=dry_run,
+        )
+        results = execute_bulk(repositories, operation)
+
+    for result in results:
+        typer.echo(f"{result.repository}: {result.message}")
+
+    summary = summarize_results(results)
+
+    typer.echo("\nSummary")
+    typer.echo(f"Total:   {len(results)}")
+    typer.echo(f"Success: {summary[OperationStatus.SUCCESS]}")
+    typer.echo(f"Skipped: {summary[OperationStatus.SKIPPED]}")
+    typer.echo(f"Failed:  {summary[OperationStatus.FAILED]}")
+
+    if dry_run:
+        typer.echo("\nDRY RUN - No changes were made.")
+
+    if summary[OperationStatus.FAILED]:
         raise typer.Exit(code=1)

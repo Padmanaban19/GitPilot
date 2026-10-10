@@ -4,6 +4,32 @@ from typing import Protocol
 class GitHubClient(Protocol):
     """Interface for GitHub operations used by GitPilot."""
 
+    def get_repository(
+        self,
+        owner: str,
+        repository: str,
+    ) -> dict:
+        """Get repository metadata, including its default branch."""
+        ...
+
+    def branch_exists(
+        self,
+        owner: str,
+        repository: str,
+        branch: str,
+    ) -> bool:
+        """Check whether a branch exists."""
+        ...
+
+    def delete_branch(
+        self,
+        owner: str,
+        repository: str,
+        branch: str,
+    ) -> None:
+        """Delete a branch from a repository."""
+        ...
+
     def create_branch(
         self,
         owner: str,

@@ -135,6 +135,21 @@ class GitHubApiClient:
         )
         self._raise_for_status(response)
 
+    def delete_branch(
+        self,
+        owner: str,
+        repository: str,
+        branch: str,
+    ) -> None:
+        """Delete a branch from a repository."""
+        branch_path = quote(branch, safe="")
+
+        response = self._request(
+            "DELETE",
+            f"/repos/{owner}/{repository}/git/refs/heads/{branch_path}",
+        )
+        self._raise_for_status(response)
+
     def get_repository(
         self,
         owner: str,

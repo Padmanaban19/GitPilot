@@ -1240,3 +1240,80 @@ def test_delete_repository_secret_returns_safely_when_missing() -> None:
         repository="app",
         name="APP_SECRET",
     )
+
+
+def test_delete_branch_success():
+    client = GitHubApiClient(token="test-token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "DELETE"
+        assert request.url.raw_path == (b"/repos/company/repoA/git/refs/heads/dev%2Ftest")
+        return httpx.Response(204)
+
+    client._client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="https://api.github.com",
+    )
+
+    client.delete_branch(
+        owner="company",
+        repository="repoA",
+        branch="dev/test",
+    )
+
+    client.close()
+
+
+def test_delete_branch_raises_api_error():
+    client = GitHubApiClient(token="test-token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "DELETE"
+        return httpx.Response(
+            422,
+            json={"message": "Cannot delete protected branch"},
+        )
+
+    client._client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="https://api.github.com",
+    )
+
+    with pytest.raises(
+        GitHubApiError,
+        match="GitHub API error \\(422\\): Cannot delete protected branch",
+    ):
+        client.delete_branch(
+            owner="company",
+            repository="repoA",
+            branch="dev/test",
+        )
+
+    client.close()
+
+
+def test_delete_branch_missing_branch_raises_api_error():
+    client = GitHubApiClient(token="test-token")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            404,
+            json={"message": "Not Found"},
+        )
+
+    client._client = httpx.Client(
+        transport=httpx.MockTransport(handler),
+        base_url="https://api.github.com",
+    )
+
+    with pytest.raises(
+        GitHubApiError,
+        match="GitHub API error \\(404\\): Not Found",
+    ):
+        client.delete_branch(
+            owner="company",
+            repository="repoA",
+            branch="missing-branch",
+        )
+
+    client.close()
