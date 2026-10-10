@@ -1152,6 +1152,42 @@ def test_delete_environment_secret_encodes_environment_name() -> None:
         "/repos/acme/app/environments/production%2Frelease/secrets/API_KEY",
     )
 
+def test_delete_repository_variable() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(204)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    client.delete_repository_variable(
+        owner="acme",
+        repository="app",
+        name="APP_ENV",
+    )
+
+    request = client._client.request.call_args
+
+    assert request.args == (
+        "DELETE",
+        "/repos/acme/app/actions/variables/APP_ENV",
+    )
+
+
+def test_delete_repository_variable_returns_safely_when_missing() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(404)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    client.delete_repository_variable(
+        owner="acme",
+        repository="app",
+        name="APP_ENV",
+    )
+
 
 def test_raise_for_status_falls_back_to_response_text() -> None:
     client = GitHubApiClient(token="test-token")
@@ -1168,3 +1204,39 @@ def test_raise_for_status_falls_back_to_response_text() -> None:
     assert exc_info.value.message == "Internal server failure"
 
     client.close()
+
+def test_delete_repository_secret() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(204)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    client.delete_repository_secret(
+        owner="acme",
+        repository="app",
+        name="APP_SECRET",
+    )
+
+    request = client._client.request.call_args
+
+    assert request.args == (
+        "DELETE",
+        "/repos/acme/app/actions/secrets/APP_SECRET",
+    )
+
+
+def test_delete_repository_secret_returns_safely_when_missing() -> None:
+    client = GitHubApiClient(token="test-token")
+
+    response = httpx.Response(404)
+
+    client._client = Mock()
+    client._client.request.return_value = response
+
+    client.delete_repository_secret(
+        owner="acme",
+        repository="app",
+        name="APP_SECRET",
+    )

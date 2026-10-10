@@ -185,7 +185,7 @@ class GitHubApiClient:
         if response.status_code == 201:
             return
 
-        if response.status_code == 422:
+        if response.status_code in (409, 422):
             response = self._request(
                 "PATCH",
                 f"/repos/{owner}/{repository}/actions/variables/{name}",
@@ -195,6 +195,36 @@ class GitHubApiClient:
                 },
             )
 
+        self._raise_for_status(response)
+
+    def delete_repository_variable(
+        self,
+        owner: str,
+        repository: str,
+        name: str,
+    ) -> None:
+        response = self._request(
+            "DELETE",
+            f"/repos/{owner}/{repository}/actions/variables/{name}",
+        )
+
+        if response.status_code == 404:
+            return
+
+        self._raise_for_status(response)
+
+    def delete_repository_secret(
+        self,
+        owner: str,
+        repository: str,
+        name: str,
+    ) -> None:
+        response = self._request(
+            "DELETE",
+            f"/repos/{owner}/{repository}/actions/secrets/{name}",
+        )
+        if response.status_code == 404:
+            return
         self._raise_for_status(response)
 
     def get_repository_secret_public_key(
@@ -346,7 +376,7 @@ class GitHubApiClient:
         if response.status_code == 201:
             return
 
-        if response.status_code == 422:
+        if response.status_code in (409, 422):
             response = self._request(
                 "PATCH",
                 f"/repos/{owner}/{repository}/environments/"

@@ -1023,3 +1023,150 @@ def test_config_delete_confirmation_can_proceed(monkeypatch):
         repository="repoA",
         name="TEST_VAR",
     ) is None
+
+
+
+def test_environment_commands_are_registered():
+    result = runner.invoke(app, ["environment", "--help"])
+
+    assert result.exit_code == 0
+    assert "create" in result.output
+    assert "delete" in result.output
+
+
+def test_environment_delete_dry_run(monkeypatch):
+    client = FakeGitHubClient()
+    client.create_environment(
+        owner="company",
+        repository="repoA",
+        environment="production",
+    )
+
+    class FakeClientContext:
+        def __enter__(self):
+            return client
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+    monkeypatch.setattr(
+        "gitpilot.commands.environment.GitHubApiClient",
+        FakeClientContext,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "environment",
+            "delete",
+            "--owner",
+            "company",
+            "--repos",
+            "repoA",
+            "--name",
+            "production",
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Would delete environment 'production'." in result.output
+    assert "Total:   1" in result.output
+    assert "Skipped: 1" in result.output
+    assert "Failed:  0" in result.output
+    assert "Delete environment 'production' from" not in result.output
+
+    assert client.get_environment(
+        owner="company",
+        repository="repoA",
+        environment="production",
+    ) == {"name": "production"}
+
+
+def test_environment_delete_confirmation_can_cancel(monkeypatch):
+    client = FakeGitHubClient()
+    client.create_environment(
+        owner="company",
+        repository="repoA",
+        environment="production",
+    )
+
+    class FakeClientContext:
+        def __enter__(self):
+            return client
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+    monkeypatch.setattr(
+        "gitpilot.commands.environment.GitHubApiClient",
+        FakeClientContext,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "environment",
+            "delete",
+            "--owner",
+            "company",
+            "--repos",
+            "repoA",
+            "--name",
+            "production",
+        ],
+        input="n\n",
+    )
+
+    assert result.exit_code == 0
+    assert "Deletion cancelled." in result.output
+    assert client.get_environment(
+        owner="company",
+        repository="repoA",
+        environment="production",
+    ) == {"name": "production"}
+
+
+def test_environment_delete_yes_skips_confirmation(monkeypatch):
+    client = FakeGitHubClient()
+    client.create_environment(
+        owner="company",
+        repository="repoA",
+        environment="production",
+    )
+
+    class FakeClientContext:
+        def __enter__(self):
+            return client
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            pass
+
+    monkeypatch.setattr(
+        "gitpilot.commands.environment.GitHubApiClient",
+        FakeClientContext,
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "environment",
+            "delete",
+            "--owner",
+            "company",
+            "--repos",
+            "repoA",
+            "--name",
+            "production",
+            "--yes",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Delete environment 'production' from" not in result.output
+    assert "Deleted environment 'production'." in result.output
+    assert client.get_environment(
+        owner="company",
+        repository="repoA",
+        environment="production",
+    ) is None

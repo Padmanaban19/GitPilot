@@ -34,3 +34,35 @@ def create_environment_operation(
         )
 
     return operation
+
+
+def delete_environment_operation(
+    client: GitHubClient,
+    target: EnvironmentTarget,
+    dry_run: bool = False,
+):
+    """Create an operation that deletes a GitHub environment."""
+
+    def operation(repository: RepositoryTarget) -> RepositoryResult:
+        if dry_run:
+            return RepositoryResult(
+                owner=repository.owner,
+                repository=repository.name,
+                status=OperationStatus.SKIPPED,
+                message=f"Would delete environment '{target.name}'.",
+            )
+
+        client.delete_environment(
+            owner=repository.owner,
+            repository=repository.name,
+            environment=target.name,
+        )
+
+        return RepositoryResult(
+            owner=repository.owner,
+            repository=repository.name,
+            status=OperationStatus.SUCCESS,
+            message=f"Deleted environment '{target.name}'.",
+        )
+
+    return operation
